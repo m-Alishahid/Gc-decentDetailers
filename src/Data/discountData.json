@@ -1,0 +1,8 @@
+{
+  "title": "Special Offer!",
+  "description": "Get an exclusive discount on your first booking!",
+  "discountText": "20% OFF",
+  "discountCode": "WELCOME20",
+  "buttonText": "Claim My 20% Discount",
+  "expiryDays": 1
+}
