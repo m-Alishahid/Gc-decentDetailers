@@ -1,6 +1,8 @@
 // src/utils/email.ts
 
 import { format } from "date-fns";
+import { Label } from "recharts";
+import { extraServices } from "@/utils/services";
 
 // ---------------- HELPER FUNCTIONS ----------------
 
@@ -43,6 +45,24 @@ const generateTable = (rows: { label: string; value: string }[]) => {
   `;
 };
 
+// Helper: format selected services with price
+const formatServices = (services: any[] = []) => {
+  if (!services || services.length === 0) return "None";
+  return `<ul style="margin:0;padding-left:18px;">${services
+    .map((s) => `<li>${s.name} - $${(s.price || 0).toFixed(2)}</li>`)
+    .join("")}</ul>`;
+};
+
+// Helper: format phone number to USA format (XXX) XXX-XXXX
+const formatPhone = (phone: string) => {
+  if (!phone) return "N/A";
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 10) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  return phone; // return as is if not 10 digits
+};
+
 // ---------------- BOOKING EMAIL TEMPLATE (Customer) ----------------
 
 export const getUserBookingTemplate = (formData: any) => {
@@ -51,6 +71,9 @@ export const getUserBookingTemplate = (formData: any) => {
   const formattedDate = formData.date
     ? format(new Date(formData.date), "MMMM d, yyyy")
     : "";
+  const extraPkg = extraServices[formData.extraService]?.[formData.packageType];
+  const selectedServiceValue = extraPkg ? `${extraPkg.name} - $${(extraPkg.price || 0).toFixed(2)}` : "None";
+
 
   return `
   <!DOCTYPE html>
@@ -59,7 +82,7 @@ export const getUserBookingTemplate = (formData: any) => {
     <meta charset="UTF-8" />
     <title>Booking Confirmation</title>
   </head>
-  <body style="font-family:'Segoe UI',Arial,sans-serif;background:##3478b3;padding:40px;margin:0;">
+  <body style="font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;padding:40px;margin:0;">
     <div style="max-width:700px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
 
       <!-- Header -->
@@ -69,25 +92,28 @@ export const getUserBookingTemplate = (formData: any) => {
       </div>
 
       <!-- Body -->
-      <div style="padding:30px;color:#333;line-height:1.6;">
+      <div style="padding:30px;color:#333;line-height:1.6; display: flex; flex-direction: column; gap: 20px;">
         <p>
           We truly appreciate your trust in <strong>Decent Detailers</strong>. 
           Our team will arrive on time and ensure your car looks brand new 🚘✨. 
         </p>
 
         <!-- Customer Info -->
-        <div style="margin-top:20px;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px;">
+        <div style="background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px; flex: 1;">
           <h3 style="margin:0 0 12px;color:#3478b3;">👤 Customer Information</h3>
           ${generateTable([
             { label: "Name:", value: `${formData.firstName} ${formData.lastName}` },
             { label: "Email:", value: formData.email },
-            { label: "Phone:", value: formData.phone },
+            { label: "Phone:", value: formatPhone(formData.phone) },
             { label: "Address:", value: `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}` },
+            { label: "Selected Packages:", value: formatServices(formData.selectedPackages || []) },
+            { label: "Total Price:", value: `$${formData.totalPrice}` },
+
           ])}
         </div>
 
         <!-- Vehicle Info -->
-        <div style="margin-top:20px;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px;">
+        <div style="background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px; flex: 1;">
           <h3 style="margin:0 0 12px;color:#3478b3;">🚗 Vehicle Information</h3>
           ${generateTable([
             { label: "Vehicle:", value: `${formData.vehicleYear} ${formData.vehicleMake} ${formData.vehicleModel} (${formData.vehicleColor})` },
@@ -96,21 +122,27 @@ export const getUserBookingTemplate = (formData: any) => {
         </div>
 
         <!-- Service & Price -->
-        <div style="margin-top:20px;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px;">
+        <div style="background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px; flex: 1;">
           <h3 style="margin:0 0 12px;color:#3478b3;">🛠️ Service Details</h3>
           ${generateTable([
             { label: "Date & Time:", value: `${formattedDate} - ${formData.timeSlot}` },
-            { label: "Extra Service:", value: formData.extraService || "None" },
-            { label: "Add-ons:", value: addonsList },
+          { label: "Selected Service:", value: formData.extraService || "None" },
+          { label: "Add-ons:", value: addonsList },
             { label: "Total Price:", value: `$${formData.totalPrice}` },
           ])}
+        </div>
+
+        <!-- Total Price -->
+        <div style="background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px; flex: 1;">
+          <h3 style="margin:0 0 12px;color:#3478b3;">💰 Total</h3>
+          <p style="font-size: 20px; font-weight: 700; margin: 0;">$${formData.totalPrice}</p>
         </div>
 
         <!-- Notes -->
         ${
           formData.notes
             ? `
-          <div style="margin-top:20px;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px;">
+          <div style="background:#fafafa;border:1px solid #eee;border-radius:8px;padding:20px; flex: 1;">
             <h3 style="margin:0 0 12px;color:#3478b3;">📝 Notes</h3>
             <p style="margin:0;">${formData.notes}</p>
           </div>
@@ -160,11 +192,13 @@ export const getAdminBookingTemplate = (formData: any) => {
         ${generateTable([
           { label: "Name:", value: `${formData.firstName} ${formData.lastName}` },
           { label: "Email:", value: formData.email },
-          { label: "Phone:", value: formData.phone },
+          { label: "Phone:", value: formatPhone(formData.phone) },
           { label: "Date & Time:", value: `${formattedDate} - ${formData.timeSlot}` },
           { label: "Vehicle:", value: `${formData.vehicleYear} ${formData.vehicleMake} ${formData.vehicleModel} (${formData.vehicleColor})` },
           { label: "Type:", value: vehicleTypeInfo },
-          { label: "Extra Service:", value: formData.extraService || "None" },
+          { label: "Selected Packages:", value: formatServices(formData.selectedPackages || []) },
+
+          { label: "Selected Service:", value: formData.extraService || "None" },
           { label: "Add-ons:", value: addonsList },
           { label: "Total Price:", value: `$${formData.totalPrice}` },
           { label: "Notes:", value: formData.notes || "N/A" },
@@ -201,7 +235,7 @@ export const getContactFormTemplate = (formData: any) => {
         ${generateTable([
           { label: "Name:", value: `${formData.firstName} ${formData.lastName}` },
           { label: "Email:", value: formData.email },
-          { label: "Phone:", value: formData.phone || "N/A" },
+          { label: "Phone:", value: formatPhone(formData.phone) },
           { label: "Subject:", value: formData.subject },
         ])}
         

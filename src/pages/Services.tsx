@@ -5,6 +5,7 @@ import { Check, Car, Truck, Zap } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import Navbar from "@/components/Navbar";
 import Image from "next/image";
+import { service, additionalServices, extraServices } from "@/utils/services";
 
 const Services = () => {
   const [activeTab, setActiveTab] = useState("car-detailing");
@@ -14,47 +15,39 @@ const Services = () => {
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
   };
 
-  const serviceCategories: Record<
-    string,
-    {
-      title: string;
-      description: string;
-      image: string;
-      sections: {
+  // Generate service categories from services.ts
+  const generateServiceCategories = () => {
+    const categories: Record<
+      string,
+      {
         title: string;
-        packages: { name: string; price: string; features: string[] }[];
-      }[];
-    }
-  > = {
-    "car-detailing": {
+        description: string;
+        image: string;
+        sections: {
+          title: string;
+          packages: { name: string; price: string; features: string[] }[];
+        }[];
+      }
+    > = {};
+
+    // Car Detailing - using suv data
+    categories["car-detailing"] = {
       title: "Car Detailing Packages",
-      description:
-        "Professional detailing services for your car, customized to your needs.",
+      description: "Professional detailing services for your car, customized to your needs.",
       image: "/slider_1.png",
       sections: [
         {
           title: "Exterior Packages",
           packages: [
             {
-              name: "Basic Wash Package",
-              price: "$170",
-              features: [
-                "Exterior hand wash",
-                "Tire dressing",
-                "Basic rim cleaning",
-                "Window cleaning",
-              ],
+              name: (service.suv.exterior as any)?.basic?.name || "Basic Exterior",
+              price: `$${(service.suv.exterior as any)?.basic?.price || 160}`,
+              features: (service.suv.exterior as any)?.basic?.includes || [],
             },
             {
-              name: "Premium Exterior Package",
-              price: "$240",
-              features: [
-                "Everything in Basic",
-                "Clay bar treatment",
-                "Hand wax application",
-                "Wheel well cleaning",
-                "Exterior plastic trim treatment",
-              ],
+              name: (service.suv.exterior as any)?.premium?.name || "Premium Exterior",
+              price: `$${(service.suv.exterior as any)?.premium?.price || 190}`,
+              features: (service.suv.exterior as any)?.premium?.includes || [],
             },
           ],
         },
@@ -62,142 +55,145 @@ const Services = () => {
           title: "Interior Packages",
           packages: [
             {
-              name: "Basic Interior Package",
-              price: "$190",
-              features: [
-                "Complete vacuuming",
-                "Dashboard/console wipe down",
-                "Door panel cleaning",
-                "Basic mat cleaning",
-              ],
+              name: (service.suv.interior as any)?.basic?.name || "Basic Interior",
+              price: `$${(service.suv.interior as any)?.basic?.price || 180}`,
+              features: (service.suv.interior as any)?.basic?.includes || [],
             },
             {
-              name: "Premium Interior Package",
-              price: "$230",
-              features: [
-                "Everything in Basic",
-                "Leather/vinyl conditioning",
-                "Carpet shampooing",
-                "Headliner cleaning",
-                "Interior odor elimination",
-              ],
+              name: (service.suv.interior as any)?.premium?.name || "Premium Interior",
+              price: `$${(service.suv.interior as any)?.premium?.price || 220}`,
+              features: (service.suv.interior as any)?.premium?.includes || [],
             },
           ],
         },
       ],
-    },
-    "rv-boat": {
-      title: "RV & Boat Packages",
-      description:
-        "Specialized cleaning and detailing for larger vehicles, priced per foot.",
+    };
+
+    // RV - separate category
+    categories["rv"] = {
+      title: "RV Packages",
+      description: "Specialized cleaning and detailing for recreational vehicles, priced per foot.",
+      image: "/rv.png", // Using boat image since no specific RV image
+      sections: [
+        {
+          title: "RV Packages (Price per foot)",
+          packages: [
+            {
+              name: (service.rv.exterior as any)?.name || "Exterior Only",
+              price: `$${(service.rv.exterior as any)?.pricePerFt || 25}/ft`,
+              features: (service.rv.exterior as any)?.includes || [],
+            },
+            {
+              name: (service.rv.interior as any)?.name || "Interior Only",
+              price: `$${(service.rv.interior as any)?.pricePerFt || 25}/ft`,
+              features: (service.rv.interior as any)?.includes || [],
+            },
+            {
+              name: (service.rv.full as any)?.name || "Complete Detail",
+              price: `$${(service.rv.full as any)?.pricePerFt || 40}/ft`,
+              features: (service.rv.full as any)?.includes || [],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Boat - separate category
+    categories["boat"] = {
+      title: "Boat Packages",
+      description: "Professional detailing services for boats and marine vessels, priced per foot.",
       image: "/boat.png",
       sections: [
         {
-          title: "RV/Boat Packages (Price per foot)",
+          title: "Boat Packages (Price per foot)",
           packages: [
             {
-              name: "Exterior Only",
-              price: "$25/ft",
-              features: [
-                "Full exterior wash",
-                "Wax application",
-                "Hull/deck cleaning",
-                "Awning cleaning",
-              ],
+              name: (service.boat.exterior as any)?.name || "Exterior Only",
+              price: `$${(service.boat.exterior as any)?.pricePerFt || 23}/ft`,
+              features: (service.boat.exterior as any)?.includes || [],
             },
             {
-              name: "Interior Only",
-              price: "$25/ft",
-              features: [
-                "Complete vacuuming",
-                "Surface cleaning",
-                "Cabinet wiping",
-                "Floor cleaning",
-              ],
+              name: (service.boat.interior as any)?.name || "Interior Only",
+              price: `$${(service.boat.interior as any)?.pricePerFt || 19}/ft`,
+              features: (service.boat.interior as any)?.includes || [],
             },
             {
-              name: "Complete Detail",
-              price: "$50/ft",
-              features: [
-                "Full exterior and interior",
-                "Upholstery cleaning",
-                "Mold/mildew treatment",
-                "Protective coatings",
-              ],
+              name: (service.boat.full as any)?.name || "Complete Detail",
+              price: `$${(service.boat.full as any)?.pricePerFt || 35}/ft`,
+              features: (service.boat.full as any)?.includes || [],
             },
           ],
         },
       ],
-    },
-    "specialty-vehicles": {
-      title: "Specialty Vehicle Packages",
-      description:
-        "Tailored detailing services for motorcycles, ATVs, and other specialty vehicles.",
-      image:
-        "/bike.jpg",
+    };
+
+    // Specialty Vehicles - using bike
+    categories["specialty-vehicles"] = {
+      title: "Motorcycle Packages",
+      description: "Tailored detailing services for motorcycles and specialty vehicles.",
+      image: "/bike.jpg",
       sections: [
         {
-          title: "Specialty Vehicle Packages",
+          title: "Motorcycle Packages",
           packages: [
             {
-              name: "ATV/UTV Package",
-              price: "$170",
-              features: [
-                "Full exterior wash",
-                "Underbody cleaning",
-                "Plastic trim restoration",
-                "Interior wipe down",
-              ],
-            },
-            {
-              name: "Motorcycle Package",
-              price: "$175",
-              features: [
-          "Pressure Rinse Frame, Tank, Fenders",
-          "Gentle Soap Wash + Hand Dry",
-          "Wheels, Rims & Spokes Cleaning",
-          "Degrease & Polish Exhaust & Chrome Parts",
-          "Chain & Sprocket Cleaning + Lubrication",
-          "Headlight & Mirrors Polish",
-          "Tire Shine",
-          "Seat Deep Clean & Condition",
-          "Handlebar & Console Wipe Down",
-          "Plastic Covers & Panels Protected",
-          "UV Protectant on Exposed Surfaces",
-              ],
+              name: (service.bike.full as any)?.basic?.name || "Motorcycle Package",
+              price: `$${(service.bike.full as any)?.basic?.price || 170}`,
+              features: (service.bike.full as any)?.basic?.includes || [],
             },
           ],
         },
       ],
-    },
-    "add-ons": {
+    };
+
+    // Jet Ski - separate category
+    categories["jet-ski"] = {
+      title: "Jet Ski Packages",
+      description: "Professional detailing services for jet skis and watercraft.",
+      image: "/jetski.png", // Using boat image since no specific jetski image
+      sections: [
+        {
+          title: "Jet Ski Packages",
+          packages: [
+            {
+              name: (service.jetski.full as any)?.name || "Jet Ski Package",
+              price: `$${(service.jetski.full as any)?.price || 220}`,
+              features: (service.jetski.full as any)?.includes || [],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Add-Ons - using additionalServices and extraServices
+    categories["add-ons"] = {
       title: "Add-On Services",
-      description:
-        "Enhance your detailing package with these premium add-on services.",
+      description: "Enhance your detailing package with these premium add-on services.",
       image: "/adds_on.jpg",
       sections: [
         {
-          title: "Exterior Enhancements",
-          packages: [
-            {
-              name: "Headlight restoration",
-              price: "$99",
-              features: [
-                "Professional restoration to remove yellowing and haziness",
-              ],
-            },
-            // {
-            //   name: "Full window tinting",
-            //   price: "$249",
-            //   features: [
-            //     "High-quality film with UV protection and heat rejection",
-            //   ],
-            // },
-          ],
+          title: "Additional Services",
+          packages: additionalServices.map(add => ({
+            name: add.name,
+            price: `$${add.price}`,
+            features: [`${add.name} service`],
+          })),
+        },
+        {
+          title: "Ceramic Coating",
+          packages: Object.values(extraServices.ceramiccoating).map(pkg => ({
+            name: pkg.name,
+            price: `$${pkg.price}`,
+            features: pkg.includes,
+          })),
         },
       ],
-    },
+    };
+
+    return categories;
   };
+
+  const serviceCategories = generateServiceCategories();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -229,7 +225,7 @@ const Services = () => {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-4 mb-12 rounded-xl bg-white shadow-md p-2">
+            <TabsList className="grid w-full grid-cols-6 mb-12 rounded-xl bg-white shadow-md p-2">
               <TabsTrigger
                 value="car-detailing"
                 className="text-sm py-3 rounded-lg data-[state=active]:bg-decent-blue data-[state=active]:text-white"
@@ -238,17 +234,28 @@ const Services = () => {
                 Car Detailing
               </TabsTrigger>
               <TabsTrigger
-                value="rv-boat"
+                value="rv"
                 className="text-sm py-3 rounded-lg data-[state=active]:bg-decent-blue data-[state=active]:text-white"
               >
-                <Truck size={16} className="mr-2" />
-                RV & Boat
+                🏠 RV
+              </TabsTrigger>
+              <TabsTrigger
+                value="boat"
+                className="text-sm py-3 rounded-lg data-[state=active]:bg-decent-blue data-[state=active]:text-white"
+              >
+                🚤 Boat
               </TabsTrigger>
               <TabsTrigger
                 value="specialty-vehicles"
                 className="text-sm py-3 rounded-lg data-[state=active]:bg-decent-blue data-[state=active]:text-white"
               >
-                🏍️ Specialty
+                🏍️ Bike
+              </TabsTrigger>
+              <TabsTrigger
+                value="jet-ski"
+                className="text-sm py-3 rounded-lg data-[state=active]:bg-decent-blue data-[state=active]:text-white"
+              >
+                🚤 Jet Ski
               </TabsTrigger>
               <TabsTrigger
                 value="add-ons"

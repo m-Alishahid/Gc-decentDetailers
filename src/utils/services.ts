@@ -406,22 +406,31 @@ export const service: Record<string, VehicleService> = {
 
 export const extraServices: Record<string, Record<string, ServicePackage>> = {
   ceramiccoating: {
-    basic: {
-      name: "Basic Ceramic Coating",
-      price: 200,
+    "1year": {
+      name: "1 Year Ceramic Coating",
+      price: 379,
       includes: [
         "Hand wash & clay bar",
         "Apply 1 layer ceramic coating",
         "Protection for 1 year",
       ],
     },
-    advanced: {
-      name: "Advanced Ceramic Coating",
-      price: 350,
+    "5year": {
+      name: "5 Year Ceramic Coating",
+      price: 579,
       includes: [
         "Hand wash & clay bar",
         "Apply 2 layers ceramic coating",
-        "Protection for 3 years",
+        "Protection for 5 years",
+      ],
+    },
+    "10year": {
+      name: "10 Year Ceramic Coating",
+      price: 779,
+      includes: [
+        "Hand wash & clay bar",
+        "Apply 3 layers ceramic coating",
+        "Protection for 10 years",
       ],
     },
   },
@@ -447,6 +456,7 @@ export const additionalServices = [
   { id: "pet_hair", name: "Pet Hair Removal", price: 40 },
   { id: "engine_cleaning", name: "Engine Cleaning", price: 70 },
   { id: "headlight_restore", name: "Headlight Restoration", price: 60 },
+  { id: "paint_correction", name: "Paint Correction", price: 179 },
 ];
 
 // ---------------- Time Slots ----------------

@@ -45,6 +45,12 @@ import {
 } from "@/components/ui/dialog";
 import OrderSummaryAccordion from "@/components/OrderSummary";
 
+// 🔹 Helper: Format Labels
+const formatLabel = (str: string) =>
+  str.replace(/([a-z])([A-Z])/g, "$1 $2")
+     .replace(/_/g, " ")
+     .replace(/\b\w/g, (c) => c.toUpperCase());
+
 //CONFIRMATION MODAL
 const ConfirmationModal = ({ open, onClose, formData, total }: any) => {
   return (
@@ -79,11 +85,19 @@ const ConfirmationModal = ({ open, onClose, formData, total }: any) => {
                 : "N/A"}
             </span>
 
-            <span className="font-medium">Service:</span>
-            <span className="text-right">{formData.serviceCategory}</span>
+            <span className="font-medium">Time Slot:</span>
+            <span className="text-right">{formData.timeSlot || "N/A"}</span>
 
-            <span className="font-medium">Package:</span>
-            <span className="text-right">{formData.packageType}</span>
+            <div className="col-span-2">
+              <span className="font-medium">Selected Services:</span>
+              <div className="mt-1 space-y-1">
+                {formData.selectedPackages.map((sp: any, idx: number) => (
+                  <div key={idx} className="text-sm text-right">
+                    {formatLabel(sp.category)} - {formatLabel(sp.package)}
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <span className="font-medium">Additional Services:</span>
             <span className="text-right">
@@ -91,9 +105,6 @@ const ConfirmationModal = ({ open, onClose, formData, total }: any) => {
                 ? formData.additionalServices.join(", ")
                 : "N/A"}
             </span>
-
-            <span className="font-medium">Time Slot:</span>
-            <span className="text-right">{formData.timeSlot || "N/A"}</span>
 
             <span className="font-medium">Total:</span>
             <span className="font-bold text-green-600 text-right">
@@ -179,6 +190,32 @@ const Booking = () => {
     updateForm({ [name]: value } as any);
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ''); // remove non-digits
+
+    // If starts with 1, treat as country code
+    if (value.startsWith('1') && value.length > 1) {
+      value = value.slice(1);
+    }
+
+    if (value.length > 10) value = value.slice(0, 10); // limit to 10 digits
+
+    let formatted = value;
+    if (value.length >= 10) {
+      formatted = `+1 (${value.slice(0, 3)}) ${value.slice(3, 6)}-${value.slice(6)}`;
+    } else if (value.length >= 6) {
+      formatted = `+1 (${value.slice(0, 3)}) ${value.slice(3, 6)}-${value.slice(6)}`;
+    } else if (value.length >= 3) {
+      formatted = `+1 (${value.slice(0, 3)}) ${value.slice(3)}`;
+    } else if (value.length > 0) {
+      formatted = `+1 (${value}`;
+    } else {
+      formatted = '+1 ';
+    }
+
+    updateForm({ phone: formatted });
+  };
+
   const handleCheckboxChange = (id: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -221,27 +258,11 @@ const Booking = () => {
 
     // Selected packages
     formData.selectedPackages.forEach((sp) => {
-      const packageId = `${sp.category}-${sp.package}`;
-      total += calculatePrice(
-        formData.vehicleType,
-        packageId,
-        sp.category,
-        Number(formData.vehicleSize)
-      );
+      const isExtra = ["ceramiccoating", "windowtinting"].includes(sp.category);
+      const packageId = isExtra ? sp.package : `${sp.category}-${sp.package}`;
+      const serviceCategory = isExtra ? sp.category : sp.category;
+      total += calculatePrice(formData.vehicleType, packageId, serviceCategory, Number(formData.vehicleSize), isExtra ? sp.category : undefined);
     });
-
-    // Extra Service
-    if (formData.extraService && formData.extraService !== "none") {
-      const extraPkg =
-        extraServices[formData.extraService]?.[formData.packageType];
-      if (extraPkg) {
-        if (extraPkg.pricePerFt && formData.vehicleSize) {
-          total += extraPkg.pricePerFt * Number(formData.vehicleSize);
-        } else if (extraPkg.price) {
-          total += extraPkg.price;
-        }
-      }
-    }
 
     // Additional services
     formData.additionalServices.forEach((id: string) => {
@@ -256,32 +277,38 @@ const Booking = () => {
   const discountedPrice = isPromoValid ? totalPrice * 0.85 : totalPrice;
 
   // Steps validation
-  const validateStep = () => {
-    if (step === 1 && !formData.vehicleType) {
-      toast({
-        title: "Missing Vehicle Info ❌",
-        description: "Please select a vehicle type.",
-      });
-      return false;
+  const isStepValid = () => {
+    if (step === 1) {
+      return !!formData.vehicleType && (
+        ["car","truck","suv","sedan","van","bike","jetski"].includes(formData.vehicleType)
+          ? formData.vehicleMake && formData.vehicleModel && formData.vehicleYear && formData.vehicleColor
+          : ["boat","rv"].includes(formData.vehicleType)
+          ? formData.vehicleModel && formData.vehicleYear && formData.vehicleSize
+          : true
+      );
     }
-    if (step === 2 && formData.selectedPackages.length === 0) {
-      toast({
-        title: "Missing Service ❌",
-        description: "Please select at least one package.",
-      });
-      return false;
+    if (step === 2) {
+      return formData.selectedPackages.length > 0;
     }
-    if (step === 3 && (!formData.firstName || !formData.email)) {
-      toast({
-        title: "Missing Info ❌",
-        description: "Please enter required customer details.",
-      });
-      return false;
+    if (step === 3) {
+      return (
+        formData.firstName &&
+        formData.lastName &&
+        formData.email &&
+        formData.phone &&
+        formData.address &&
+        formData.city &&
+        formData.state &&
+        formData.zip &&
+        formData.date &&
+        formData.timeSlot
+      );
     }
     return true;
   };
+  
 
-  const nextStep = () => validateStep() && setStep(step + 1);
+  const nextStep = () => isStepValid() && setStep(step + 1);
   const prevStep = () => step > 1 && setStep(step - 1);
 
   // Submit
@@ -476,47 +503,12 @@ const Booking = () => {
                           value={formData.vehicleYear}
                           onChange={handleInputChange}
                         />
-                      </div>
-                    )}
-
-                    <div className="flex justify-end">
-                      <Button
-                        className="bg-decent-blue hover:bg-decent-lightBlue text-white rounded-md"
-                        onClick={nextStep}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {step === 2 && (
-                  <motion.div
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeIn}
-                    className="space-y-6"
-                  >
-                    <h2 className="text-xl font-semibold">Select Package</h2>
-
-                    {/* Vehicle type display */}
-                    <p className="text-gray-700 mb-2">
-                      Vehicle Type:{" "}
-                      <span className="font-medium">
-                        {
-                          vehicleTypes.find(
-                            (v) => v.id === formData.vehicleType
-                          )?.name
-                        }
-                      </span>
-                    </p>
-
-                    {/* Boat/RV size input */}
+                        {/* Boat/RV size input */}
                     {(formData.vehicleType === "boat" ||
                       formData.vehicleType === "rv") && (
                       <Input
-                        type="number"
-                        placeholder="Enter size in feet"
+                        type="string"
+                        placeholder="Enter size in feet *"
                         value={formData.vehicleSize || ""}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -527,245 +519,14 @@ const Booking = () => {
                         className="bg-white text-black"
                       />
                     )}
-
-                    {/* Extra Services Dropdown */}
-                    <div>
-                      <Label htmlFor="extraService">Select Extra Service</Label>
-                      <Select
-                        value={formData.extraService || "none"}
-                        onValueChange={(val) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            extraService: val,
-                            packageType: "", // reset package when extra service changes
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select extra service" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Detailing</SelectItem>
-                          <SelectItem value="ceramiccoating">
-                            Ceramic Coating
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Service Packages */}
-                    {formData.vehicleType && (
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {Object.entries(
-                          formData.extraService &&
-                            formData.extraService !== "none"
-                            ? extraServices[formData.extraService] || {}
-                            : service[formData.vehicleType] || {}
-                        ).map(([serviceCategory, packagesOrService]) => {
-                          const isExtra =
-                            formData.extraService &&
-                            formData.extraService !== "none";
-
-                          // Nested packages for cars, trucks, vans
-                          if (
-                            ["sedan", "suv", "truck", "van", "bike"].includes(
-                              formData.vehicleType
-                            ) &&
-                            !isExtra
-                          ) {
-                            return Object.entries(packagesOrService as any).map(
-                              ([packageKey, pkg]) => {
-                                const packageId = `${serviceCategory}-${packageKey}`;
-                                const isSelected =
-                                  formData.packageType === packageId;
-                                const price = calculatePrice(
-                                  formData.vehicleType,
-                                  packageId,
-                                  serviceCategory,
-                                  Number(formData.vehicleSize),
-                                  formData.extraService
-                                );
-
-                                return (
-                                  <div
-                                    key={packageId}
-                                    className={`p-4 border rounded-lg cursor-pointer hover:shadow-lg transition ${
-                                      isSelected
-                                        ? "bg-gray-100 border-black"
-                                        : ""
-                                    }`}
-                                    onClick={() => {
-                                      const newSelected = [{ category: serviceCategory, package: packageKey }];
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        selectedPackages: newSelected,
-                                        serviceCategory,
-                                        packageType: packageId,
-                                      }));
-                                    }}
-                                  >
-                                    <div className="flex justify-between font-medium">
-                                      <span>
-                                        {(pkg as { name: string }).name}
-                                      </span>
-                                      <span>${price}</span>
-                                    </div>
-
-                                    <ul className="text-sm mt-2 list-disc pl-4 space-y-1">
-                                      {Array.isArray(
-                                        (
-                                          pkg as {
-                                            includes?: string[] | string;
-                                          }
-                                        ).includes
-                                      )
-                                        ? (
-                                            pkg as { includes?: string[] }
-                                          ).includes?.map(
-                                            (i: string, idx: number) => (
-                                              <li key={idx}>{i}</li>
-                                            )
-                                          )
-                                        : typeof (pkg as { includes?: string })
-                                            .includes === "string"
-                                        ? (
-                                            pkg as { includes?: string }
-                                          ).includes
-                                            ?.split(",")
-                                            .map((i: string, idx: number) => (
-                                              <li key={idx}>{i.trim()}</li>
-                                            ))
-                                        : null}
-                                    </ul>
-
-                                    {isSelected && (
-                                      <p className="text-sm text-green-600 flex items-center mt-2">
-                                        <Check size={14} className="mr-1" />{" "}
-                                        Selected
-                                      </p>
-                                    )}
-                                  </div>
-                                );
-                              }
-                            );
-                          }
-
-                          // Boats / RVs or Extra Services
-                          // ...existing code...
-
-                          const pkg = packagesOrService as any;
-
-                          let packageId = serviceCategory;
-                          let serviceCat = serviceCategory;
-
-                          // For extra services, adjust packageId and serviceCategory for correct pricing
-                          if (
-                            formData.extraService &&
-                            formData.extraService !== "none"
-                          ) {
-                            // serviceCategory is the package key (e.g., "standard", "premium", "basic", "advanced")
-                            // formData.extraService is "windowtinting" or "ceramiccoating"
-                            packageId = serviceCategory; // e.g., "standard"
-                            serviceCat = formData.extraService; // e.g., "windowtinting"
-                          }
-
-                          const isSelected = formData.packageType === packageId;
-                          const price =
-                            formData.extraService &&
-                            formData.extraService !== "none"
-                              ? calculatePrice(
-                                  formData.vehicleType,
-                                  packageId, // e.g. "standard"
-                                  serviceCat, // e.g. "windowtinting"
-                                  Number(formData.vehicleSize),
-                                  formData.extraService // <-- yeh 5th argument zaroor dena hai!
-                                )
-                              : calculatePrice(
-                                  formData.vehicleType,
-                                  packageId,
-                                  serviceCategory,
-                                  Number(formData.vehicleSize)
-                                );
-
-                          return (
-                            <div
-                              key={serviceCategory}
-                              className={`p-4 border rounded-lg cursor-pointer hover:shadow-lg transition ${
-                                isSelected ? "bg-gray-100 border-black" : ""
-                              }`}
-                              onClick={() => {
-                                const newSelected = [{ category: serviceCat, package: packageId }];
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  selectedPackages: newSelected,
-                                  serviceCategory: serviceCat,
-                                  packageType: packageId,
-                                }));
-                              }}
-                            >
-                              <div className="flex justify-between font-medium">
-                                <span>{pkg.name}</span>
-                                <span>${price}</span>
-                              </div>
-                              {pkg.includes && pkg.includes.length > 0 && (
-                                <ul className="text-sm mt-2 list-disc pl-4 space-y-1">
-                                  {pkg.includes.map(
-                                    (i: string, idx: number) => (
-                                      <li key={idx}>{i}</li>
-                                    )
-                                  )}
-                                </ul>
-                              )}
-                              {isSelected && (
-                                <p className="text-sm text-green-600 flex items-center mt-2">
-                                  <Check size={14} className="mr-1" /> Selected
-                                </p>
-                              )}
-                            </div>
-                          );
-                          // ...existing code...
-                        })}
                       </div>
                     )}
 
-                    {/* Add-ons */}
-                    {formData.selectedPackages.length > 0 && (
-                      <div>
-                        <h3 className="font-medium mt-4">Add-ons</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          {additionalServices.map((svc) => (
-                            <div
-                              key={svc.id}
-                              className="flex items-center space-x-2"
-                            >
-                              <Checkbox
-                                id={svc.id}
-                                checked={formData.additionalServices.includes(
-                                  svc.id
-                                )}
-                                onCheckedChange={() =>
-                                  handleCheckboxChange(svc.id)
-                                }
-                              />
-                              <Label htmlFor={svc.id}>
-                                {svc.name} – ${svc.price}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex justify-end">
+                      <Button
+                        className="bg-decent-blue hover:bg-decent-lightBlue text-white rounded-md"
+                        disabled={!isStepValid()}
 
-                    {/* Navigation */}
-                    <div className="flex justify-between mt-6">
-                      <Button
-                        onClick={prevStep}
-                        className="bg-decent-blue hover:bg-decent-lightBlue text-white rounded-md"
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        className="bg-decent-blue hover:bg-decent-lightBlue text-white rounded-md"
                         onClick={nextStep}
                       >
                         Next
@@ -773,6 +534,261 @@ const Booking = () => {
                     </div>
                   </motion.div>
                 )}
+
+{step === 2 && (
+  <motion.div
+    initial="hidden"
+    animate="visible"
+    variants={fadeIn}
+    className="space-y-6"
+  >
+    <h2 className="text-xl font-semibold">Select Package</h2>
+
+    {/* Vehicle type display */}
+    <p className="text-gray-700 mb-2">
+      Vehicle Type:{" "}
+      <span className="font-medium">
+        {vehicleTypes.find((v) => v.id === formData.vehicleType)?.name}
+      </span>
+    </p>
+
+    {/* Extra Services Dropdown */}
+    <div>
+      <Label htmlFor="extraService">Select Extra Service</Label>
+      <Select
+        value={formData.extraService || "none"}
+        onValueChange={(val) =>
+          setFormData((prev) => ({
+            ...prev,
+            extraService: val,
+            packageType: "", // reset package when extra service changes
+          }))
+        }
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select extra service" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Detailing</SelectItem>
+          <SelectItem value="ceramiccoating">Ceramic Coating</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* Service Packages */}
+    {formData.vehicleType && (
+      <div className="grid md:grid-cols-2 gap-4">
+        {Object.entries(
+          formData.extraService && formData.extraService !== "none"
+            ? extraServices[formData.extraService] || {}
+            : service[formData.vehicleType] || {}
+        ).map(([serviceCategory, packagesOrService]) => {
+          const isExtra =
+            formData.extraService && formData.extraService !== "none";
+
+          // Nested packages for cars, trucks, vans, bikes
+          if (
+            ["sedan", "suv", "truck", "van", "bike"].includes(
+              formData.vehicleType
+            ) &&
+            !isExtra
+          ) {
+            return Object.entries(packagesOrService as any).map(
+              ([packageKey, pkg]) => {
+                const packageId = `${serviceCategory}-${packageKey}`;
+                const isSelected = formData.selectedPackages.some(
+                  (sp) =>
+                    sp.category === serviceCategory && sp.package === packageKey
+                );
+
+                const price = calculatePrice(
+                  formData.vehicleType,
+                  packageId,
+                  serviceCategory,
+                  Number(formData.vehicleSize),
+                  formData.extraService
+                );
+
+                return (
+                  <div
+                    key={packageId}
+                    className={`p-4 border rounded-lg cursor-pointer hover:shadow-lg transition ${
+                      isSelected ? "bg-gray-100 border-black" : ""
+                    }`}
+                    onClick={() => {
+                      setFormData((prev) => {
+                        const alreadySelected = prev.selectedPackages.some(
+                          (sp) =>
+                            sp.category === serviceCategory &&
+                            sp.package === packageKey
+                        );
+
+                        return {
+                          ...prev,
+                          selectedPackages: alreadySelected
+                            ? prev.selectedPackages.filter(
+                                (sp) =>
+                                  !(
+                                    sp.category === serviceCategory &&
+                                    sp.package === packageKey
+                                  )
+                              )
+                            : [
+                                ...prev.selectedPackages,
+                                { category: serviceCategory, package: packageKey },
+                              ],
+                        };
+                      });
+                    }}
+                  >
+                    <div className="flex justify-between font-medium">
+                      <span>{(pkg as { name: string }).name}</span>
+                      <span>${price}</span>
+                    </div>
+
+                    <ul className="text-sm mt-2 list-disc pl-4 space-y-1">
+                      {Array.isArray((pkg as { includes?: string[] }).includes)
+                        ? (pkg as { includes?: string[] }).includes?.map(
+                            (i: string, idx: number) => <li key={idx}>{i}</li>
+                          )
+                        : typeof (pkg as { includes?: string }).includes ===
+                          "string"
+                        ? (pkg as { includes?: string })
+                            .includes?.split(",")
+                            .map((i: string, idx: number) => (
+                              <li key={idx}>{i.trim()}</li>
+                            ))
+                        : null}
+                    </ul>
+
+                    {isSelected && (
+                      <p className="text-sm text-green-600 flex items-center mt-2">
+                        <Check size={14} className="mr-1" /> Selected
+                      </p>
+                    )}
+                  </div>
+                );
+              }
+            );
+          }
+
+          // Boats / RVs or Extra Services
+          const pkg = packagesOrService as any;
+          let packageId = serviceCategory;
+          let serviceCat = serviceCategory;
+
+          if (formData.extraService && formData.extraService !== "none") {
+            packageId = serviceCategory; // e.g., "standard"
+            serviceCat = formData.extraService; // e.g., "ceramiccoating"
+          }
+
+          const isSelected = formData.selectedPackages.some(
+            (sp) => sp.category === serviceCat && sp.package === packageId
+          );
+
+          const price =
+            formData.extraService && formData.extraService !== "none"
+              ? calculatePrice(
+                  formData.vehicleType,
+                  packageId,
+                  serviceCat,
+                  Number(formData.vehicleSize),
+                  formData.extraService
+                )
+              : calculatePrice(
+                  formData.vehicleType,
+                  packageId,
+                  serviceCategory,
+                  Number(formData.vehicleSize)
+                );
+
+          return (
+            <div
+              key={serviceCategory}
+              className={`p-4 border rounded-lg cursor-pointer hover:shadow-lg transition ${
+                isSelected ? "bg-gray-100 border-black" : ""
+              }`}
+              onClick={() => {
+                setFormData((prev) => {
+                  const alreadySelected = prev.selectedPackages.some(
+                    (sp) =>
+                      sp.category === serviceCat && sp.package === packageId
+                  );
+
+                  return {
+                    ...prev,
+                    selectedPackages: alreadySelected
+                      ? prev.selectedPackages.filter(
+                          (sp) =>
+                            !(sp.category === serviceCat && sp.package === packageId)
+                        )
+                      : [...prev.selectedPackages, { category: serviceCat, package: packageId }],
+                  };
+                });
+              }}
+            >
+              <div className="flex justify-between font-medium">
+                <span>{pkg.name}</span>
+                <span>${price}</span>
+              </div>
+              {pkg.includes && pkg.includes.length > 0 && (
+                <ul className="text-sm mt-2 list-disc pl-4 space-y-1">
+                  {pkg.includes.map((i: string, idx: number) => (
+                    <li key={idx}>{i}</li>
+                  ))}
+                </ul>
+              )}
+              {isSelected && (
+                <p className="text-sm text-green-600 flex items-center mt-2">
+                  <Check size={14} className="mr-1" /> Selected
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    )}
+
+    {/* Add-ons */}
+    {formData.selectedPackages.length > 0 && (
+      <div>
+        <h3 className="font-medium mt-4">Add-ons</h3>
+        <div className="grid md:grid-cols-2 gap-4">
+          {additionalServices.map((svc) => (
+            <div key={svc.id} className="flex items-center space-x-2">
+              <Checkbox
+                id={svc.id}
+                checked={formData.additionalServices.includes(svc.id)}
+                onCheckedChange={() => handleCheckboxChange(svc.id)}
+              />
+              <Label htmlFor={svc.id}>
+                {svc.name} – ${svc.price}
+              </Label>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Navigation */}
+    <div className="flex justify-between mt-6">
+      <Button
+        onClick={prevStep}
+        className="bg-decent-blue hover:bg-decent-lightBlue text-white rounded-md"
+      >
+        Back
+      </Button>
+      <Button
+        disabled={!isStepValid()}
+        className="bg-decent-blue hover:bg-decent-lightBlue text-white rounded-md"
+        onClick={nextStep}
+      >
+        Next
+      </Button>
+    </div>
+  </motion.div>
+)}
+
 
                 {/* STEP 3 - Customer Info */}
                 {step === 3 && (
@@ -816,7 +832,7 @@ const Booking = () => {
                         name="phone"
                         placeholder="Phone *"
                         value={formData.phone}
-                        onChange={handleInputChange}
+                        onChange={handlePhoneChange}
                         required
                       />
                     </div>

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { service, additionalServices, extraServices } from "@/utils/services";
 
-// Helper function to calculate price
+// 🔹 Helper: Price Calculation
 const calculatePrice = (
   vehicleType: string,
   packageType: string,
@@ -41,11 +41,11 @@ const calculatePrice = (
   return 0;
 };
 
-// ✅ Capitalize helper
+// 🔹 Helper: Format Labels
 const formatLabel = (str: string) =>
-  str.replace(/([a-z])([A-Z])/g, "$1 $2") // camelCase → camel Case
-     .replace(/_/g, " ") // underscores → spaces
-     .replace(/\b\w/g, (c) => c.toUpperCase()); // capitalize
+  str.replace(/([a-z])([A-Z])/g, "$1 $2")
+     .replace(/_/g, " ")
+     .replace(/\b\w/g, (c) => c.toUpperCase());
 
 interface OrderSummaryProps {
   formData: any;
@@ -64,13 +64,14 @@ const OrderSummaryAccordion: FC<OrderSummaryProps> = ({
   const toggleOpen = () => setOpen(!open);
 
   return (
-    <Card className="mt-6 border-0 shadow-lg bg-gray-50">
+    <Card className="mt-6 border-0 shadow-lg bg-green-100">
       <CardContent className="p-6">
+        {/* Accordion Header */}
         <div
-          className="flex justify-between items-center cursor-pointer"
+          className="flex items-center cursor-pointer"
           onClick={toggleOpen}
         >
-          <h2 className="text-lg font-semibold">Order Summary</h2>
+          <h2 className="text-lg font-semibold flex-1 text-center text-black">Order Summary</h2>
           {open ? <ChevronUp /> : <ChevronDown />}
         </div>
 
@@ -81,70 +82,57 @@ const OrderSummaryAccordion: FC<OrderSummaryProps> = ({
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="mt-4 space-y-4"
+              className="mt-4 space-y-6"
             >
               {/* Vehicle Info */}
               <div>
-                <h3 className="font-medium mb-2">Vehicle</h3>
-                <div className="p-2 border rounded text-sm space-y-1">
+                <h3 className="font-medium mb-2 bg-green-100">Vehicle</h3>
+                <div className="p-3  text-sm space-y-1 bg-green-100">
                   <p>
-                    {formData.vehicleYear} {formData.vehicleMake}{" "}
-                    {formData.vehicleModel}
+                    {formData.vehicleYear} {formData.vehicleMake} {formData.vehicleModel} ({formatLabel(formData.vehicleType)})
+                    {formData.vehicleColor && ` - ${formData.vehicleColor}`}
+                    {formData.vehicleSize && ` - ${formData.vehicleSize} ft`}
                   </p>
-                  <p>Type: {formatLabel(formData.vehicleType)}</p>
-                  {formData.vehicleColor && <p>Color: {formData.vehicleColor}</p>}
-                  {formData.vehicleSize && <p>Size: {formData.vehicleSize} ft</p>}
                 </div>
               </div>
 
-              {/* Selected Package */}
+              {/* Selected Services */}
               <div>
-                <h3 className="font-medium mb-2">Selected Package</h3>
-                {formData.packageType ? (
-                  <div className="flex justify-between p-2 border rounded">
-                    <span>
-                      {formatLabel(formData.serviceCategory || formData.extraService)}{" "}
-                      - {formatLabel(formData.packageType)}
-                    </span>
-                    <span>
-                      $
-                      {calculatePrice(
+                <h3 className="font-medium mb-2">Selected Services</h3>
+                {formData.selectedPackages.length > 0 ? (
+                  <div className="space-y-2">
+                    {formData.selectedPackages.map((sp: any, idx: number) => {
+                      const isExtra = ["ceramiccoating", "windowtinting"].includes(sp.category);
+                      const packageId = isExtra ? sp.package : `${sp.category}-${sp.package}`;
+                      const serviceCategory = isExtra ? sp.category : sp.category;
+                      const price = calculatePrice(
                         formData.vehicleType,
-                        formData.packageType,
-                        formData.serviceCategory,
+                        packageId,
+                        serviceCategory,
                         Number(formData.vehicleSize),
-                        formData.extraService
-                      )}
-                    </span>
+                        isExtra ? sp.category : undefined
+                      );
+                      return (
+                        <div
+                          key={idx}
+                          className="flex justify-between p-2 bg-green-100"
+                        >
+                          <span>
+                            {formatLabel(sp.category)} - {formatLabel(sp.package)}
+                          </span>
+                          <span>${price.toFixed(2)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">No package selected</p>
+                  <p className="text-sm text-gray-500">No service selected</p>
                 )}
               </div>
 
-              {/* Extra Service (if applicable) */}
-              {formData.extraService && formData.extraService !== "none" && (
-                <div>
-                  <h3 className="font-medium mb-2">Extra Service</h3>
-                  <div className="flex justify-between p-2 border rounded">
-                    <span>{formatLabel(formData.extraService)}</span>
-                    <span>
-                      $
-                      {calculatePrice(
-                        formData.vehicleType,
-                        formData.packageType,
-                        formData.serviceCategory,
-                        Number(formData.vehicleSize),
-                        formData.extraService
-                      ).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               {/* Add-ons */}
               {formData.additionalServices.length > 0 && (
-                <div>
+                <div className="bg-green-100">
                   <h3 className="font-medium mb-2">Add-ons</h3>
                   <div className="space-y-2">
                     {formData.additionalServices.map((id: string) => {
@@ -153,7 +141,7 @@ const OrderSummaryAccordion: FC<OrderSummaryProps> = ({
                       return (
                         <div
                           key={id}
-                          className="flex justify-between p-2 border rounded"
+                          className="flex justify-between p-2  bg-green-100"
                         >
                           <span>{add.name}</span>
                           <span>${add.price}</span>
@@ -165,23 +153,22 @@ const OrderSummaryAccordion: FC<OrderSummaryProps> = ({
               )}
 
               {/* Totals */}
-<div className="border-t pt-3 space-y-1">
-  <div className="flex justify-between">
-    <span className="font-medium">Subtotal:</span>
-    <span>${totalPrice.toFixed(2)}</span>
-  </div>
-  {isPromoValid && (
-    <div className="flex justify-between text-green-600 font-medium">
-      <span>Promo Applied (15% Discount)</span>
-      <span>-${(totalPrice - discountedPrice).toFixed(2)}</span>
-    </div>
-  )}
-  <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2">
-    <span>Total:</span>
-    <span>${discountedPrice.toFixed(2)}</span>
-  </div>
-</div>
-
+              <div className=" pt-3 space-y-1">
+                <div className="flex justify-between">
+                  <span className="font-medium">Subtotal:</span>
+                  <span>${totalPrice.toFixed(2)}</span>
+                </div>
+                {isPromoValid && (
+                  <div className="flex justify-between text-green-600 font-medium">
+                    <span>Promo Applied (15% Discount)</span>
+                    <span>-${(totalPrice - discountedPrice).toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-lg pt-2  mt-2">
+                  <span>Total:</span>
+                  <span>${discountedPrice.toFixed(2)}</span>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
