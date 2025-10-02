@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { Label } from "recharts";
-import { extraServices } from "@/utils/services";
+import { extraServices, service } from "@/utils/services";
 
 // ---------------- HELPER FUNCTIONS ----------------
 
@@ -46,10 +46,60 @@ const generateTable = (rows: { label: string; value: string }[]) => {
 };
 
 // Helper: format selected services with price
-const formatServices = (services: any[] = []) => {
+const formatServices = (services: any[] = [], vehicleType?: string, vehicleSize?: number) => {
   if (!services || services.length === 0) return "None";
+
+  const formatServiceItem = (service: any) => {
+    // Handle extra services (ceramiccoating, windowtinting)
+    if (["ceramiccoating", "windowtinting"].includes(service.category)) {
+      const extraPkg = extraServices[service.category]?.[service.package];
+      if (extraPkg) {
+        const price = extraPkg.pricePerFt && vehicleSize
+          ? extraPkg.pricePerFt * Number(vehicleSize)
+          : extraPkg.price || 0;
+        return `${extraPkg.name} - $${price.toFixed(2)}`;
+      }
+    }
+
+    // Handle regular vehicle services
+    if (vehicleType && service.category && service.package) {
+      // For cars, trucks, vans, sedans - package format is "category-package"
+      if (["sedan", "suv", "truck", "van"].includes(vehicleType)) {
+        const pkgObj = service[vehicleType]?.[service.category];
+        if (pkgObj && typeof pkgObj === 'object') {
+          const pkg = pkgObj[service.package];
+          if (pkg) {
+            return `${pkg.name} - $${(pkg.price || 0).toFixed(2)}`;
+          }
+        }
+      }
+
+      // For boats, RVs - direct package lookup
+      if (["boat", "rv"].includes(vehicleType)) {
+        const pkg = service[vehicleType]?.[service.category];
+        if (pkg && typeof pkg === 'object') {
+          const price = pkg.pricePerFt && vehicleSize
+            ? pkg.pricePerFt * Number(vehicleSize)
+            : pkg.price || 0;
+          return `${pkg.name} - $${price.toFixed(2)}`;
+        }
+      }
+
+      // For bikes, jetskis
+      if (["bike", "jetski"].includes(vehicleType)) {
+        const pkg = service[vehicleType]?.[service.category]?.[service.package];
+        if (pkg) {
+          return `${pkg.name} - $${(pkg.price || 0).toFixed(2)}`;
+        }
+      }
+    }
+
+    // Fallback - just show category and package
+    return `${service.category} - ${service.package}`;
+  };
+
   return `<ul style="margin:0;padding-left:18px;">${services
-    .map((s) => `<li>${s.name} - $${(s.price || 0).toFixed(2)}</li>`)
+    .map((s) => `<li>${formatServiceItem(s)}</li>`)
     .join("")}</ul>`;
 };
 
@@ -106,7 +156,7 @@ export const getUserBookingTemplate = (formData: any) => {
             { label: "Email:", value: formData.email },
             { label: "Phone:", value: formatPhone(formData.phone) },
             { label: "Address:", value: `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}` },
-            { label: "Selected Packages:", value: formatServices(formData.selectedPackages || []) },
+            { label: "Selected Packages:", value: formatServices(formData.selectedPackages || [], formData.vehicleType, formData.vehicleSize) },
             { label: "Total Price:", value: `$${formData.totalPrice}` },
 
           ])}
@@ -196,7 +246,7 @@ export const getAdminBookingTemplate = (formData: any) => {
           { label: "Date & Time:", value: `${formattedDate} - ${formData.timeSlot}` },
           { label: "Vehicle:", value: `${formData.vehicleYear} ${formData.vehicleMake} ${formData.vehicleModel} (${formData.vehicleColor})` },
           { label: "Type:", value: vehicleTypeInfo },
-          { label: "Selected Packages:", value: formatServices(formData.selectedPackages || []) },
+          { label: "Selected Packages:", value: formatServices(formData.selectedPackages || [], formData.vehicleType, formData.vehicleSize) },
 
           { label: "Selected Service:", value: formData.extraService || "None" },
           { label: "Add-ons:", value: addonsList },
